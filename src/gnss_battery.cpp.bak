@@ -1,0 +1,103 @@
+#include <Arduino.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_ST7735.h>
+#include <TinyGPSPlus.h>
+#include <heltec_tracker_v11.h>
+
+SPIClass spiST(HSPI);
+Adafruit_ST7735 st7735 = Adafruit_ST7735(&spiST, ST7735_CS_Pin, ST7735_DC_Pin, ST7735_REST_Pin);
+
+TinyGPSPlus gps;
+float vbat;
+
+void VextOn(void) {
+    pinMode(ST7735_VTFT_CTRL_Pin, OUTPUT);
+    digitalWrite(ST7735_VTFT_CTRL_Pin, HIGH);  // VExt_Ctrl active HIGH
+    pinMode(ST7735_LED_K_Pin, OUTPUT);
+    digitalWrite(ST7735_LED_K_Pin, HIGH);  // Backlight active HIGH
+}
+
+void VextOff(void) {
+    pinMode(ST7735_VTFT_CTRL_Pin, OUTPUT);
+    digitalWrite(ST7735_VTFT_CTRL_Pin, LOW);
+    pinMode(ST7735_LED_K_Pin, OUTPUT);
+    digitalWrite(ST7735_LED_K_Pin, LOW);
+}
+
+bool ledEnabled = false;
+long lastPPS = 0;
+
+void onPPS() {
+    ledEnabled = !ledEnabled;
+    digitalWrite(LED, ledEnabled);
+    if (lastPPS < millis() - 1000) {
+        Serial.println(millis());
+    }
+    lastPPS = millis();
+}
+
+bool gpsEnabled = true;
+bool usrPrint = false;
+
+void setup() {
+    Serial.begin(115200);
+    
+    pinMode(LED, OUTPUT);
+    digitalWrite(LED, LOW);
+    pinMode(GNSS_PPS, INPUT);
+    attachInterrupt(GNSS_PPS, onPPS, RISING | FALLING);
+
+    VextOn();
+
+    spiST.begin(ST7735_SCLK_Pin, -1, ST7735_MOSI_Pin, ST7735_CS_Pin);            // SCK/CLK, MISO, MOSI, NSS/CS
+    st7735.initR(ST7735_MODEL);  // initialize ST7735S chip, mini display
+    st7735.setRotation(2);
+    st7735.fillScreen(ST7735_BLACK);
+    // st7735.drawFastHLine(0, 93, 80, ST7735_WHITE);
+    
+
+    Serial1.begin(GNSS_BAUD, SERIAL_8N1, GNSS_TX, GNSS_RX);  // open GPS comms
+    
+    delay(5000);
+}
+
+void displayGPS() {
+    st7735.setTextColor(ST7735_ORANGE);
+    // st7735.fillRect(30, 96, 50, 30, ST7735_BLACK);
+    st7735.fillScreen(ST7735_BLACK);
+    st7735.setCursor(2,  2);
+    st7735.printf("Battery: %d %%\r\n ", heltec_battery_percent(heltec_vbat()));
+    st7735.setTextColor(ST7735_WHITE);
+    st7735.setCursor(2,  96);
+    st7735.printf("Lat: %8.04f", gps.location.lat());
+    st7735.setCursor(2, 106);
+    st7735.printf("Lng: %8.04f", gps.location.lng());
+    st7735.setCursor(2, 116);
+    st7735.printf("Alt: %6.2f m", gps.altitude.meters());
+    st7735.fillRect(30, 126, 50, 20, ST7735_BLACK);
+    st7735.setCursor(2, 126);
+    st7735.printf("HDOP: %7.1f", gps.hdop.hdop());
+    st7735.setCursor(2, 136);
+    st7735.printf("Sats: %7d", gps.satellites.value());
+    st7735.fillRect(4, 146, 50, 8, ST7735_BLACK);
+    st7735.setCursor(5, 146);
+    st7735.printf("%02d:%02d:%02d UTC", gps.time.hour(), gps.time.minute(), gps.time.second());
+}
+
+void loop() {
+    while (Serial1.available()) {
+        String input = Serial1.readStringUntil('\n');
+        for (char c : input) {
+            gps.encode(c);
+        }
+        // Serial.println(input);
+    }
+    displayGPS();
+    Serial.printf("[%04d-%02d-%02d / %02d:%02d:%02d] ", 
+                    gps.date.year(), gps.date.month(), gps.date.day(), gps.time.hour(), gps.time.minute(), gps.time.second());
+    Serial.printf("Lat: %8.5f | Lng: %8.5f | Alt: %5.2f | Sats: %d | HDOP: %5.2f", 
+                    gps.location.lat(), gps.location.lng(), gps.altitude.meters(), gps.satellites.value(), gps.hdop.value());
+    Serial.printf(" | Battery: %d %%\r\n ", heltec_battery_percent(heltec_vbat()));
+    delay(1000);
+}
+
