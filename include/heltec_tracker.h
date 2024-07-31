@@ -4,10 +4,21 @@
 #include <stdint.h>
 #include <Arduino.h>
 #include <HotButton.h>
-// #include <SPI.h>
+#include <SPI.h>
 #include "RadioLib.h"
 
 #define TIMEZONE                -4
+
+// Function prototype
+void VextOn(void);
+void VextOff(void);
+float heltec_vbat();
+int heltec_battery_percent(float vbat = -1);
+void heltec_loop();
+void heltec_delay(int ms);
+void init_radio();
+void heltec_deep_sleep(int seconds = 0);
+void heltec_setup();
 
 #ifdef HELTEC_WIRELESS_TRACKER
   /* Heltec Wireless Tracker V1.1 */
@@ -196,7 +207,7 @@ float heltec_vbat() {
  * @param vbat The battery voltage in volts (default = -1).
  * @return The battery percentage (0-100).
  */
-int heltec_battery_percent(float vbat = -1) {
+int heltec_battery_percent(float vbat) {
   if (vbat == -1) {
     vbat = heltec_vbat();
   }
@@ -249,6 +260,35 @@ void rx() {
   rxFlag = true;
 }
 
+/**
+ * @brief Initializes the radio module.
+ * 
+ * This function initializes the radio module, sets the callback function for
+ * received packets, and configures the radio parameters such as frequency,
+ * bandwidth, spreading factor, and transmit power.
+ */
+void init_radio() {
+  // Initialize radio module
+    spiRadio->begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_NSS);
+
+    Serial.printf("Radio init\n");
+    RADIOLIB_OR_HALT(radio.begin());
+    // Set the callback function for received packets
+    radio.setDio1Action(rx);
+    // Set radio parameters
+    Serial.printf("Frequency: %.2f MHz\n", FREQUENCY);
+    RADIOLIB_OR_HALT(radio.setFrequency(FREQUENCY));
+    Serial.printf("Bandwidth: %.1f kHz\n", BANDWIDTH);
+    RADIOLIB_OR_HALT(radio.setBandwidth(BANDWIDTH));
+    Serial.printf("Spreading Factor: %i\n", SPREADING_FACTOR);
+    RADIOLIB_OR_HALT(radio.setSpreadingFactor(SPREADING_FACTOR));
+    Serial.printf("TX power: %i dBm\n", TRANSMIT_POWER);
+    RADIOLIB_OR_HALT(radio.setOutputPower(TRANSMIT_POWER));
+    // Start receiving
+    RADIOLIB_OR_HALT(radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF));
+    Serial.printf("Radio init done\n");
+}
+
 
 
 // ------------------ Deep Sleep ----------------------
@@ -262,7 +302,7 @@ void rx() {
  *
  * @param seconds The number of seconds to sleep before waking up (default = 0).
  */
-void heltec_deep_sleep(int seconds = 0) {
+void heltec_deep_sleep(int seconds) {
   #ifdef WiFi_h
     WiFi.disconnect(true);
   #endif
@@ -314,7 +354,6 @@ void heltec_setup() {
  * This function should be called in loop() of the Arduino sketch. It updates
  * the state of the power button and implements long-press power off if used.
  */
-
 void heltec_loop() {
   button.update();
   // Power off button checking
@@ -342,6 +381,7 @@ void heltec_loop() {
   
 }
 
+
 /**
  * @brief Delays the execution of the program for the specified number of
  *        milliseconds.
@@ -362,9 +402,5 @@ void heltec_delay(int ms) {
     }
   }
 }
-
-
-
-
 
 #endif // HELTEC_TRACKER_V11_H_
