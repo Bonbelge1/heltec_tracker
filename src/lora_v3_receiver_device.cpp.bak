@@ -1,0 +1,59 @@
+#define HELTEC_LORA_V3
+#define INTERVAL    1
+
+#include <heltec_tracker.h>
+
+
+
+String rxdata;
+uint64_t last_print;
+
+void setup() {
+    Serial.begin(115200);
+    // heltec_setup();
+
+    // // Initialize display
+    // VextOn();
+    // display.init();
+    // display.setContrast(255);
+    // display.flipScreenVertically();
+
+    // Serial.println("Radio init");
+    // RADIOLIB_OR_HALT(radio.begin());
+    // // Set the callback function for received packets
+    // radio.setDio1Action(rx);
+    // // Set radio parameters
+    // Serial.printf("Frequency: %.2f MHz\n", FREQUENCY);
+    // RADIOLIB_OR_HALT(radio.setFrequency(FREQUENCY));
+    // Serial.printf("Bandwidth: %.1f kHz\n", BANDWIDTH);
+    // RADIOLIB_OR_HALT(radio.setBandwidth(BANDWIDTH));
+    // Serial.printf("Spreading Factor: %i\n", SPREADING_FACTOR);
+    // RADIOLIB_OR_HALT(radio.setSpreadingFactor(SPREADING_FACTOR));
+    // Serial.printf("TX power: %i dBm\n", TRANSMIT_POWER);
+    // RADIOLIB_OR_HALT(radio.setOutputPower(TRANSMIT_POWER));
+    // // Start receiving
+    // RADIOLIB_OR_HALT(radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF));
+
+}
+
+void loop() {
+    // heltec_loop();
+    
+    if (!last_print || millis() - last_print > INTERVAL * 1000) {
+        Serial.printf("Still here\n");
+    }
+    // Serial.printf("Still here2\n");
+    // If a packet was received, display it and the RSSI and SNR
+    // if (rxFlag) {
+    //     rxFlag = false;
+    //     radio.readData(rxdata);
+    //     if (_radiolib_status == RADIOLIB_ERR_NONE) {
+    //     Serial.printf("RX [%s]\n", rxdata.c_str());
+    //     Serial.printf("  RSSI: %.2f dBm\n", radio.getRSSI());
+    //     Serial.printf("  SNR: %.2f dB\n", radio.getSNR());
+    //     }
+    //     RADIOLIB_OR_HALT(radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF));
+    // }
+
+}
+

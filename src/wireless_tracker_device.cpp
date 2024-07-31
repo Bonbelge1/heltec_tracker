@@ -1,5 +1,6 @@
+#define HELTEC_WIRELESS_TRACKER
+#include <heltec_tracker.h>
 #include <TinyGPSPlus.h>
-#include <heltec_tracker_v11.h>
 
 TinyGPSPlus gps;
 float vbat;
@@ -12,6 +13,9 @@ long counter = 0;
 uint64_t last_tx = 0;
 uint64_t tx_time;
 uint64_t minimum_pause;
+uint64_t last_print;
+
+#define INTERVAL    5
 
 void onPPS() { // on Pulse per Second
     ledEnabled = !ledEnabled;
@@ -23,7 +27,7 @@ void onPPS() { // on Pulse per Second
 }
 
 void setup() {
-    Serial.begin(115200);
+    heltec_setup();
     // Serial.printf("Reason for wakeup : %s", esp_sleep_get_wakeup_cause()); not working
     VextOn(); // turn on
     
@@ -91,22 +95,30 @@ void loop() {
         }
         // Serial.println(input);
     }
-    displayGPS();
-    Serial.printf("[%04d-%02d-%02d / %02d:%02d:%02d] ", 
+    
+      // Print 
+    if (!last_print || millis() - last_print > INTERVAL * 1000) {
+        displayGPS();
+        Serial.printf("[%04d-%02d-%02d / %02d:%02d:%02d] ", 
                     gps.date.year(), gps.date.month(), gps.date.day(), (gps.time.hour() + TIMEZONE) % 24, gps.time.minute(), gps.time.second());
-    Serial.printf("Lat: %8.5f | Lng: %8.5f | Alt: %5.2f | Sats: %d | HDOP: %5.2f", 
+        Serial.printf("Lat: %8.5f | Lng: %8.5f | Alt: %5.2f | Sats: %d | HDOP: %5.2f", 
                     gps.location.lat(), gps.location.lng(), gps.altitude.meters(), gps.satellites.value(), gps.hdop.value());
-    Serial.printf(" | Battery: %d %%\r\n ", heltec_battery_percent(heltec_vbat()));
-    delay(500);
-
+        Serial.printf(" | Battery: %d %%\r\n ", heltec_battery_percent(heltec_vbat()));
+        last_print = millis();
+    }    
 
 
     bool tx_legal = millis() > last_tx + minimum_pause;
     // Transmit a packet every PAUSE seconds or when the button is pressed
-    if ((PAUSE && tx_legal && millis() - last_tx > (PAUSE * 1000)) || button.isSingleClick()) {
+    // if ((PAUSE && tx_legal && millis() - last_tx > (PAUSE * 1000)) || button.isSingleClick()) {
+    if (button.isSingleClick()) {
+        Serial.printf("button 1 Click\n");
         // In case of button click, tell user to wait
         if (!tx_legal) {
             Serial.printf("Legal limit, wait %i sec.\n", (int)((minimum_pause - (millis() - last_tx)) / 1000) + 1);
+            st7735.fillRect(2, 40, 80, 52, ST7735_BLACK);
+            st7735.setCursor(2,  42);
+            st7735.printf("wait %i sec.", (int)((minimum_pause - (millis() - last_tx)) / 1000) + 1);
             return;
         }
         Serial.printf("new TX sent, last was [%i] seconds ago", (int)((millis() - last_tx) / 1000) + 1);
@@ -116,6 +128,9 @@ void loop() {
         tx_time = millis() - tx_time;
         if (_radiolib_status == RADIOLIB_ERR_NONE) {
             Serial.printf("OK (%i ms)\n", (int)tx_time);
+            st7735.fillRect(2, 40, 80, 52, ST7735_BLACK);
+            st7735.setCursor(2,  42);
+            st7735.printf("Message sent");
         } else {
             Serial.printf("fail (%i)\n", _radiolib_status);
         }
@@ -137,10 +152,4 @@ void loop() {
         }
         RADIOLIB_OR_HALT(radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF));
     }
-
-
 }
-
-
-
-
